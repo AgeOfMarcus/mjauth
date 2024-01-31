@@ -43,8 +43,8 @@ class ReplDBSQL(object):
         self.run('DROP TABLE tokens')
 
 # main.py
-from gevent import monkey
-monkey.patch_all()
+#from gevent import monkey
+#monkey.patch_all()
 
 from flask import Flask, jsonify, request, render_template, session, redirect
 from flask_socketio import SocketIO
