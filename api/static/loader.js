@@ -1,6 +1,6 @@
 var css = document.createElement('link');
 css.rel = 'stylesheet';
-css.href = '/static/loader.css';
+css.href = '/static/loaderstyle.css';
 document.body.appendChild(css);
 
 function addLoader(elm) {
