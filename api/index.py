@@ -272,7 +272,7 @@ def app_avatar(username):
 @app.route('/auth/<domain>')
 @app.route('/auth/')
 def app_auth(domain='this site'):
-    return render_template('auth.html', domain=domain, user=api_auth(), **flask_funcs)
+    return render_template('authpage.html', domain=domain, user=api_auth(), **flask_funcs)
 
 @app.route('/callback/verify/<token>')
 def callback_verify(token):
