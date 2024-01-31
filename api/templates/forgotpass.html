@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h1>Reset Password</h1>
+<br>
+
+<label for='pass1'>New Password</label>
+<input name='pass1' type='password'>
+<label for='pass2'>Confirm Password</label>
+<input name='pass2' type='password'>
+
+<span style='color: red' id='pwerr'></span>
+<div id='toLoad'></div>
+
+<button onclick='submitPass()'>Change Password</button>
+
+<script>
+
+const token = '{{ token }}';
+const socket = io();
+
+function submitPass() {
+    p1 = $('input[name=pass1]').val();
+    p2 = $('input[name=pass2]').val();
+    if (p1 != p2) {
+        $('#pwerr').text('Error: Passwords must match');
+        return
+    }
+    $('#pwerr').text('');
+    addLoader($('#toLoad')[0]);
+
+    socket.emit('forgotpass post', {
+        'token': token,
+        'password': p1,
+    }, (r) => {
+        $('#toLoad').empty();
+        if (r['changed']) {
+            window.location.replace('https://auth.marcusj.org');
+        } else {
+            $('#pwerr').text('Error');
+        }
+    })
+}
+
+</script>
+
+{% endblock %}

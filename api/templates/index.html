@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h1>dupl auth</h1>
+<hr>
+
+{% if msg == 'email_verified' %}
+<h3 style='color: green'>Email Verified Successfully</h3>
+<hr>
+{% endif %}
+
+{% if user %}
+<h2>Welcome, {{ user['FULLNAME'] or user['USERNAME'] }}</h2>
+
+<div style='display: flex'>
+<ul style='float: left'>
+    <li><b>Email: </b>{{ user['EMAIL'] }}</li>
+    <li><b>Created: </b>{{ to_date(user['CREATED']) }}</li>
+</ul>
+
+<img style='float: right; max-height: 40vh' src="/avatar/{{ user['USERNAME'] }}"/>
+</div>
+
+<hr>
+
+<h3>Manage Account</h3>
+
+<button style='color: red' onclick='deleteAccount()'>Delete Account</button>
+<button onclick='$("#changePass").toggle()'>Change Password</button>
+<button onclick='window.location.replace("/logout")'>Sign out</button>
+
+<div id='changePass' style='display: none'>
+
+    <label for='newpass'>New Password</label>
+    <input name='newpass' type='password'>
+    <label for='confirmnewpass'>Confirm Password</label>
+    <input name='confirmnewpass' type='password'>
+
+    <span id='chpwerr' style='color: red'></span>
+    <span id='chpwres' style='color: green'></span>
+
+    <div id='chpwloader'></div>
+
+    <button onclick='doChangePass()'>Change Password</button>
+
+</div>
+
+<div id='setAvatar' style='display: none'>
+    <!--
+        TODO: form (api auth on post?) or add socket api
+
+        post file name=image
+    -->
+</div>
+</div>
+
+<script>
+const socket = io();
+
+function doChangePass() {
+    newpass = $('input[name=newpass]').val();
+    if (newpass != $('input[name=confirmnewpass]').val()) {
+        $('#chpwerr').text('Passwords don\'t match!');
+    } else {
+        $('#chpwerr').text('');
+        addLoader($('#chpwloader')[0]);
+        socket.emit('changepass', {
+            'token': '{{ user["TOKEN"] }}',
+            'password': newpass,
+        }, (r) => {
+            if (r['changed']) {
+                $('#chpwres').text('Password Changed');
+            } else {
+                $('#chpwerr').text('Error');
+            }
+            $('#chpwloader').empty();
+        })
+    }
+}
+
+function deleteAccount() {
+    if (confirm('Are you sure you want to delete your account?')) {
+        socket.emit('delete', {
+            'token': '{{ user["TOKEN"] }}',
+        }, (r) => {
+            if (r['deleted']) {
+                window.location.replace("/logout");
+            }
+        })
+    }
+}
+</script>
+
+{% if not user['EMAIL_VERIFIED'] %}
+<p style='color: red'>Please verify your email address. Make sure to check your spam folder, too!</p>
+<button onclick='resendEmail()'>Resend verification email</button>
+
+<script>
+
+//const socket = io();
+const user = JSON.parse(`{{ user|safe }}`)
+
+function resendEmail() {
+    socket.emit('resend_email_check', {
+        'token': '{{ user["TOKEN"] }}',
+    }, (r) => {
+        if (r['ok']) {
+            alert('Sent!')
+        }
+    })
+}
+
+</script>
+{% endif %}
+
+{% else %}
+
+<div>
+
+    <p id='err' style='color: red'></p>
+
+    <form id='login' onsubmit="do_login(event)">
+        <h3>Login</h3>
+        <label for='username'>Username:</label>
+        <input name='username'>
+        <br>
+        <label for='password'>Password:</label>
+        <input name='password' type="password">
+        <br>
+        <input type="submit">
+
+        <p>Don't have an account? <a href='#' onclick='$("#login").hide(); $("#signup").show()'>Click here</a> to sign up.</p>
+    </form>
+
+    <form id='signup' onsubmit="do_signup(event)" style='display: none'>
+        <h3>Sign Up</h3>
+        <label for='username'>Username:</label>
+        <input name='username' required>
+        <br>
+        <label for='fullname'>Full name:</label>
+        <input name='fullname'>
+        <br>
+        <label for='email'>Email:</label>
+        <input name='email' required>
+        <br>
+        <label for='password'>Password:</label>
+        <input name='password' type='password' required>
+        <br>
+        <label for='password_confirm'>Confirm password:</label>
+        <input name='password_confirm' type='password' required>
+        <span id='pwerr' style="color: red"></span>
+        <br>
+        <input type='submit'>
+
+        <p>Already have an account? <a href='#' onclick='$("#login").show(); $("#signup").hide()'>Click here</a> to login.</p>
+    </form>
+
+    <hr>
+
+    <form id='forgotPass' onsubmit="doForgotPass(event)">
+        <h3>Forgot Password?</h3>
+        <label for='tg_email'>Email:</label>
+        <input name='tg_email'>
+        <br>
+        <input type='submit'>
+    </form>
+
+</div>
+
+<script>
+
+const socket = io();
+
+function do_form(route, data) {
+    form = document.createElement('form');
+    form.style.display = 'none';
+    form.action = route;
+    form.method = 'POST';
+    for (name in data) {
+        e = document.createElement('input');
+        e.name = name;
+        e.value = data[name];
+        form.appendChild(e);
+    }
+    document.body.appendChild(form);
+    form.submit();
+}
+
+function doForgotPass(event) {
+    event.preventDefault();
+    socket.emit('forgotpass', {
+        'email': $('input[name=tg_email]').val()
+    }, (r) => {
+        if (r.err) {
+            alert(r.err);
+        } else {
+            alert("Sent link to your email");
+        }
+    })
+}
+
+function do_login(event) {
+    event.preventDefault();
+
+    socket.emit('login', {
+        'username': $('#login input[name=username]').val(),
+        'password': $('#login input[name=password]').val()
+    }, (user) => {
+        if (user) {
+            localStorage.setItem('token', user.TOKEN);
+            do_form('/api/setsession', {
+                'token': user.TOKEN,
+                'redirect': '{{ redir }}' || window.location.href
+            });
+        } else {
+            $('#err').text('Invalid Login');
+        }
+    })
+}
+
+function do_signup(event) {
+    event.preventDefault();
+
+    password = $('#signup input[name=password]').val();
+    password_confirm = $('#signup input[name=password_confirm]').val();
+
+    if (password != password_confirm) {
+        $('#pwerr').text("Passwords do not match!");
+        return;
+    } else {
+        $('#pwerr').text('');
+    }
+
+    socket.emit('signup', {
+        'username': $('#signup input[name=username]').val(),
+        'password': password,
+        'email': $('#signup input[name=email]').val(),
+        'fullname': $('#signup input[name=fullname]').val()
+    }, (user) => {
+        if (user) {
+            localStorage.setItem('token', user.TOKEN);
+            do_form('/api/setsession', {
+                'token': user.TOKEN,
+                'redirect': '{{ redir }}' || window.location.href
+            });
+        } else {
+            $('#err').text("Could not create account.");
+        }
+    })
+}
+
+$(function() {
+    if ('{{ logout }}' == 'true') {
+        localStorage.removeItem('token');
+        return;
+    }
+    stkn = localStorage.getItem('token');
+    if (stkn) {
+        do_form('/api/setsession', {
+            'token': stkn,
+            'redirect': '{{ redir }}' || window.location.href
+        });
+    }
+})
+
+</script>
+{% endif %}
+{% endblock %}

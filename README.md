@@ -1,28 +1,16 @@
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fexamples%2Ftree%2Fmain%2Fpython%2Fflask&demo-title=Flask%20%2B%20Vercel&demo-description=Use%20Flask%202%20on%20Vercel%20with%20Serverless%20Functions%20using%20the%20Python%20Runtime.&demo-url=https%3A%2F%2Fflask-python-template.vercel.app%2F&demo-image=https://assets.vercel.com/image/upload/v1669994156/random/flask.png)
+# [dupl auth](https://auth.marcusj.org)
 
-# Flask + Vercel
+***A dead-easy SSO (Single Sign On) provider that makes user management painless!***
 
-This example shows how to use Flask 2 on Vercel with Serverless Functions using the [Python Runtime](https://vercel.com/docs/concepts/functions/serverless-functions/runtimes/python).
+## Features
 
-## Demo
+* [repl-auth](https://repl.it/talk/learn/Authenticating-users-with-Replit-Auth/23460) like usage
 
-https://flask-python-template.vercel.app/
-
-## How it Works
-
-This example uses the Web Server Gateway Interface (WSGI) with Flask to enable handling requests on Vercel with Serverless Functions.
-
-## Running Locally
-
-```bash
-npm i -g vercel
-vercel dev
+```html
+<script src='https://auth.marcusj.org/auth.js' authed='(user) => { alert(`Welcome, ${user.user.FULLNAME}`) }'></script>
 ```
 
-Your Flask application is now available at `http://localhost:3000`.
+## Examples
 
-## One-Click Deploy
-
-Deploy the example using [Vercel](https://vercel.com?utm_source=github&utm_medium=readme&utm_campaign=vercel-examples):
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fexamples%2Ftree%2Fmain%2Fpython%2Fflask&demo-title=Flask%20%2B%20Vercel&demo-description=Use%20Flask%202%20on%20Vercel%20with%20Serverless%20Functions%20using%20the%20Python%20Runtime.&demo-url=https%3A%2F%2Fflask-python-template.vercel.app%2F&demo-image=https://assets.vercel.com/image/upload/v1669994156/random/flask.png)
+* [a very basic html demo for static sites](https://repl.it/@MarcusWeinberger/dupl-auth-html-demo)
+* [a link management/tracking service written in python/flask that stores user data](https://replit.com/@dupl/linkr)

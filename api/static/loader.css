@@ -1,0 +1,74 @@
+/* DO NOT CHANGE */
+/* https://repl.it/@Lethdev2019/loader#style.css */
+
+
+.spinner {
+    position: absolute;
+  animation: rotator 1.4s linear infinite;
+}
+
+.spinner2 {
+	position: absolute;
+  animation: rotator2 1.4s linear infinite;
+}
+
+@keyframes rotator {
+  0% {
+    -webkit-transform: rotate(0deg);
+            transform: rotate(0deg);
+  }
+  100% {
+    -webkit-transform: rotate(270deg);
+            transform: rotate(270deg);
+  }
+}
+
+@keyframes rotator2 {
+  0% {
+    -webkit-transform: rotate(-175deg);
+            transform: rotate(-175deg);
+  }
+  100% {
+    -webkit-transform: rotate(95deg);
+            transform: rotate(95deg);
+  }
+}
+.path {
+  stroke-dasharray: 187;
+	transform-origin: center;
+	animation: dash 1.4s ease-in-out infinite;
+}
+
+
+@keyframes colors {
+  0% {
+    stroke: #8121ff;
+  }
+  25% {
+    stroke: #8121ff;
+  }
+  50% {
+    stroke: #8121ff;
+  }
+  75% {
+    stroke: #8121ff;
+  }
+  100% {
+    stroke: #8121ff;
+  }
+}
+@keyframes dash {
+  0% {
+    stroke-dashoffset: 187;
+  }
+  50% {
+    stroke-dashoffset: 120;
+    -webkit-transform: rotate(135deg);
+            transform: rotate(135deg);
+  }
+  100% {
+    stroke-dashoffset: 187;
+    -webkit-transform: rotate(450deg);
+            transform: rotate(450deg);
+  }
+}

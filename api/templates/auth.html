@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block content %}
+
+<script src='/static/loader.js'></script>
+
+<h1>dupl auth</h1>
+<hr>
+
+{% if user %}
+<div style='text-align: center'>
+    <h2>Let <a href='https://{{ domain }}'><b>{{ domain }}</b></a> know who you are?</h2>
+    <p>Welcome, <span style='color: green'>{{ user['FULLNAME'] or user['USERNAME'] }}</span>, would you like to authorize this app to verify your identity? This will give them access to:</p>
+    <ul style='text-align: left'>
+        <li>Your user id</li>
+        <li>Your full name</li>
+        <li>Your email address</li>
+    </ul>
+    <p><i>If you do not wish to provide this information, simply close this window</i></p>
+    <br>
+
+    <div id='allowArea'>
+    <button onclick='allow()' style='color: green'>Authorize</button> <button onclick='window.location.href = "/logout"' style='color: red'>Logout</button>
+    </div>
+</div>
+
+<script>
+
+const socket = io();
+
+function do_form(route, data) {
+    form = document.createElement('form');
+    form.style.display = 'none';
+    form.action = route;
+    form.method = 'POST';
+    for (name in data) {
+        e = document.createElement('input');
+        e.name = name;
+        e.value = data[name];
+        form.appendChild(e);
+    }
+    document.body.appendChild(form);
+    form.submit();
+}
+
+function allow() {
+    document.getElementById('allowArea').innerHTML = '';
+    addLoader(document.getElementById('allowArea'));
+    socket.emit('auth', {
+        'token': '{{ user["TOKEN"] }}',
+        'domain': '{{ domain }}',
+    }, (res) => {
+        if (window.opener) {
+            socket.emit('user', {'token': res['TOKEN']}, (user) => {
+                window.opener.postMessage({'user': user, 'token': res['TOKEN']}, '*');
+            })
+        } else {
+            socket.emit('user', {'token': res['TOKEN']}, (user) => {
+                do_form('https://{{ domain }}/_dupl/auth', {
+                    'token': res['TOKEN'],
+                    'user': JSON.stringify(user),
+                });
+            })
+        }
+    })
+}
+
+</script>
+
+{% else %}
+<script>
+    window.location.replace(`/?redir=${window.location.href}`)
+</script>
+{% endif %}
+
+{% endblock %}
