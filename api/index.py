@@ -111,9 +111,10 @@ class get_user:
         res = db.run('SELECT * FROM users WHERE ID = :i', {'i': id})
         return res[0] if not res == [] else False
     def by_token(master):
-        tkns = tokens.by_token(master)
-        userid = tkns['USERID']
-        return get_user.by_id(userid)
+        if (tkns := tokens.by_token(master)):
+            userid = tkns['USERID']
+            return get_user.by_id(userid)
+        return False
 
 class tokens:
     def by_userid(uid):
@@ -185,39 +186,6 @@ def register_token(userid, name=None):
         'n': name
     })
     return tokens.by_token(tkn)
-
-# bins classes - TODO
-class Bin(object):
-    def __init__(self, user):
-        if (tkn := repldb.get(f'{user}.bin')):
-            self.token = tkn
-        else:
-            self.token = str(uuid4())
-            repldb[f'{user}.bin'] = self.token
-
-        self.headers = {
-            'Content-Type': 'application/json',
-            'secret-key': os.getenv('JSONBIN_KEY'),
-            'collection-id': os.getenv('JSONBIN_COLLECTION'),
-            'versioning': 'false',
-            'name': self.token
-        }
-        self.user = user
-    
-    def create(self):
-        r = requests.post('https://api.jsonbin.io/b', headers=self.headers, json={'user': self.user})
-        return (r.status_code == 200), r
-    
-    def read(self):
-        return requests.get(f'https://api.jsonbin.io/b/{self.token}', headers=self.headers).json()
-    
-    def write(self, json):
-        r = requests.put(f'https://api.jsonbin.io/b/{self.token}', headers=self.headers, json=json)
-        return (r.status_code == 200), r
-    
-    def delete(self):
-        r = requests.delete(f'https://api.jsonbin.io/b/{self.token}', headers=self.headers)
-        return (r.status_code == 200), r
 
 
 # api auth functions
