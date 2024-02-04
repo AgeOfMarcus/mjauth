@@ -2,5 +2,6 @@ Flask
 Flask-SocketIO
 MJMS
 imj
-mysql-connector-python
+pymysql
+sqlalchemy
 gevent
