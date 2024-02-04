@@ -357,6 +357,18 @@ def api_email_check():
             })
         return jsonify(res)
 
+@app.route('/api/email/resend', methods=['POST'])
+def api_resend_email_check(json):
+    user = api_auth()
+    if user:
+        if user['EMAIL_VERIFIED']:
+            return jsonify({'verified': True})
+        else:
+            res = mjms.verify_email(user['EMAIL'])
+            db.run('UPDATE users SET EMAIL_TOKEN = :t WHERE ID = :i', {'t': res['token'], 'i': user['ID']})
+        return jsonify({'ok': True})
+    return jsonify({'ok': False})
+
 @app.route('/api/user', methods=['POST'])
 def api_user():
     userdata = get_user.by_token(request.form['token'])
@@ -378,8 +390,9 @@ def api_setsession():
     user = get_user.by_token(token)
     if user:
         session['user'] = user
+        #return jsonify({'ok': True})
         return redirect(request.form.get('redirect', '/'))
-    return 'err'
+    return jsonify({'err': 'invalid token'})
 
 @app.route('/api/delete', methods=['POST'])
 def api_delete():

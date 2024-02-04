@@ -14,6 +14,31 @@
     <script src="//cdnjs.cloudflare.com/ajax/libs/socket.io/2.2.0/socket.io.js" integrity="sha256-yr4fRk/GU1ehYJPAs8P4JlTgu0Hdsp4ZKrx8bDEDC3I=" crossorigin="anonymous"></script>
     <script defer src='https://analytics.marcusj.org/analytics.js'></script>
     <script src='/static/loader.js'></script>
+    <script>
+        function post_data(path, data, callback) {
+            let urlEncodedData = "";
+            for (name in data) {
+                urlEncodedData += encodeURIComponent(name) + '=' + encodeURIComponent(data[name]) + '&';
+            }
+            if (path.startsWith('/')) {
+                var route = path;
+            } else {
+                var route = '/api/' + path;
+            }
+
+            var http = new XMLHttpRequest();
+            http.open('POST', route, true);
+            http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+
+            http.onreadystatechange = function() {
+                if (http.readyState == 4 && http.status == 200) {
+                    callback(JSON.parse(http.responseText));
+                }
+            }
+
+            http.send(urlEncodedData);
+        }
+    </script>
     
     {% block content %}{% endblock %}
 

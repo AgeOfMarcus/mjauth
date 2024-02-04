@@ -55,7 +55,6 @@
 </div>
 
 <script>
-const socket = io();
 
 function doChangePass() {
     newpass = $('input[name=newpass]').val();
@@ -64,7 +63,7 @@ function doChangePass() {
     } else {
         $('#chpwerr').text('');
         addLoader($('#chpwloader')[0]);
-        socket.emit('changepass', {
+        post_data('changepass', {
             'token': '{{ user["TOKEN"] }}',
             'password': newpass,
         }, (r) => {
@@ -80,7 +79,7 @@ function doChangePass() {
 
 function deleteAccount() {
     if (confirm('Are you sure you want to delete your account?')) {
-        socket.emit('delete', {
+        post_data('delete', {
             'token': '{{ user["TOKEN"] }}',
         }, (r) => {
             if (r['deleted']) {
@@ -101,7 +100,7 @@ function deleteAccount() {
 const user = JSON.parse(`{{ user|safe }}`)
 
 function resendEmail() {
-    socket.emit('resend_email_check', {
+    post_data('/api/email/resend', {
         'token': '{{ user["TOKEN"] }}',
     }, (r) => {
         if (r['ok']) {
@@ -188,7 +187,7 @@ function do_form(route, data) {
 
 function doForgotPass(event) {
     event.preventDefault();
-    socket.emit('forgotpass', {
+    post_data('forgotpass', {
         'email': $('input[name=tg_email]').val()
     }, (r) => {
         if (r.err) {
@@ -202,7 +201,7 @@ function doForgotPass(event) {
 function do_login(event) {
     event.preventDefault();
 
-    socket.emit('login', {
+    post_data('login', {
         'username': $('#login input[name=username]').val(),
         'password': $('#login input[name=password]').val()
     }, (user) => {
@@ -231,7 +230,7 @@ function do_signup(event) {
         $('#pwerr').text('');
     }
 
-    socket.emit('signup', {
+    post_data('signup', {
         'username': $('#signup input[name=username]').val(),
         'password': password,
         'email': $('#signup input[name=email]').val(),
