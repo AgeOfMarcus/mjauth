@@ -1,51 +1,31 @@
-import mysql.connector
+from sqlalchemy import create_engine
+import os, sqlalchemy
+import pymysql
 
-class MySQLCursorDict(mysql.connector.cursor.MySQLCursor):
-    def _row_to_python(self, rowdata, desc=None):
-        row = super(MySQLCursorDict, self)._row_to_python(rowdata, desc)
-        if row:
-            return dict(zip(self.column_names, row))
-        return None
+pymysql.install_as_MySQLdb()
 
 class ReplDBSQL(object):
-    def __init__(self, host, user, password, db_name):
-        self.host = host
-        self.user = user
-        self.password = password
-        self.db_name = db_name
-    
-    def connect(self):
-        conn = mysql.connector.connect(
-            host=self.host,
-            user=self.user,
-            password=self.password,
-            db=self.db_name
-        )
-        return conn
-    def commit(self, conn):
-        conn.commit()
+    def __init__(self, db_uri: str):
+        self.db_uri = db_uri
+        self.engine = create_engine(db_uri, pool_size=5, pool_recycle=3600)
 
-    def run(self, query, vals=()):
-        conn = self.connect()
-        cur = conn.cursor(dictionary=True)
-        cur.execute(query, vals)
+    def run(self, query: str, vals: dict={}):
+        conn = self.engine.connect()
+        query = conn.execute(sqlalchemy.text(query), vals)
         try:
-            res = cur.fetchall()
+            res = query.fetchall()
         except:
             res = None
         conn.commit()
         conn.close()
-        self.commit(conn)
-        return res
-    
-    def clear(self):
-        self.run('DROP TABLE users')
-        self.run('DROP TABLE tokens')
+        if res:
+            return [dict(row._mapping) for row in res]
+        return []
 
 # main.py
 #from gevent import monkey
 #monkey.patch_all()
-
+#from dotenv import load_dotenv; load_dotenv() # DEV
 from flask import Flask, jsonify, request, render_template, session, redirect
 from flask_socketio import SocketIO
 #from replemail import ReplEmail
@@ -59,7 +39,6 @@ import hashlib
 import string
 import time
 import imj
-import os
 
 # flask setup
 app = Flask(__name__)
@@ -70,7 +49,7 @@ socketio.init_app(app, cors_allowed_origins='*')
 repldb = {}
 
 # db setup
-db = ReplDBSQL(os.getenv('DB_HOST'), os.getenv('DB_USER'), os.getenv("DB_PASS"), os.getenv("DB_NAME"))
+db = ReplDBSQL(os.getenv('DB_URI'))
 db.run('''
 CREATE TABLE IF NOT EXISTS users (
     ID INTEGER PRIMARY KEY AUTO_INCREMENT,
@@ -120,16 +99,16 @@ flask_funcs = {
 # db functions
 class get_user:
     def by_user(username):
-        res = db.run('SELECT * FROM users WHERE USERNAME = %s', (username,))
+        res = db.run('SELECT * FROM users WHERE USERNAME = :u', {'u': username})
         return res[0] if not res == [] else False
     def by_login(username, password):
-        res = db.run('SELECT * FROM users WHERE USERNAME = %s AND PASSHASH = %s', (
-            username,
-            sha256(password),
-        ))
+        res = db.run('SELECT * FROM users WHERE USERNAME = :u AND PASSHASH = :p', {
+            'u': username,
+            'p': sha256(password),
+        })
         return res[0] if not res == [] else False
     def by_id(id):
-        res = db.run('SELECT * FROM users WHERE ID = %s', (id,))
+        res = db.run('SELECT * FROM users WHERE ID = :i', {'i': id})
         return res[0] if not res == [] else False
     def by_token(master):
         tkns = tokens.by_token(master)
@@ -138,15 +117,15 @@ class get_user:
 
 class tokens:
     def by_userid(uid):
-        return db.run('SELECT * FROM tokens WHERE USERID = %s', (uid,))
+        return db.run('SELECT * FROM tokens WHERE USERID = :u', {'u': uid})
     def by_user(username):
         uid = get_user.by_user(username)['ID']
         return tokens.by_userid(uid)
     def by_token(token):
-        res = db.run('SELECT * FROM tokens WHERE TOKEN = %s', (token,))
+        res = db.run('SELECT * FROM tokens WHERE TOKEN = :t', {'t': token})
         return res[0] if not res == [] else False
     def get_master_token(userid):
-        return db.run('SELECT TOKEN FROM tokens WHERE USERID = %s AND NAME = %s', (userid, 'master'))[0]['TOKEN']
+        return db.run('SELECT TOKEN FROM tokens WHERE USERID = :u AND NAME = :n', {'u': userid, 'n': 'master'})[0]['TOKEN']
 
 def user_login(username, password):
     user = get_user.by_login(username, password)
@@ -156,55 +135,55 @@ def user_login(username, password):
 
 def check_username(username):
     if valid_user(username):
-        if db.run('SELECT ID FROM users WHERE USERNAME = %s', (username,)) == []:
+        if db.run('SELECT ID FROM users WHERE USERNAME = :u', {'u': username}) == []:
             return True
     return False
 
 def register_user(username, password, email=None, fullname=None):
     if not check_username(username):
         return False
-    db.run('INSERT INTO users (USERNAME, PASSHASH, EMAIL, FULLNAME, CREATED) VALUES (%s, %s, %s, %s, %s)', (
-        username,
-        sha256(password),
-        email,
-        fullname,
-        timestamp(),
-    ))
+    db.run('INSERT INTO users (USERNAME, PASSHASH, EMAIL, FULLNAME, CREATED) VALUES (:u, :p, :e, :f, :c)', {
+        'u': username,
+        'p': sha256(password),
+        'e': email,
+        'f': fullname,
+        'c': timestamp()
+    })
     user = get_user.by_user(username)
     if user['EMAIL']:
         r = mjms.verify_email(user['EMAIL'])
         tkn = r['token']
-        db.run('UPDATE users SET EMAIL_TOKEN = %s WHERE ID = %s', (tkn, user['ID']))
+        db.run('UPDATE users SET EMAIL_TOKEN = :e WHERE ID = :i', {'e': tkn, 'i': user['ID']})
     token = register_token(user['ID'], name='master')
     user['TOKEN'] = token['TOKEN']
     return user
 
 def get_avatar(user):
-    if (res := db.run('SELECT URL FROM avatars WHERE USERNAME = %s', (user,))) == []:
+    if (res := db.run('SELECT URL FROM avatars WHERE USERNAME = :u', {'u': user})) == []:
         return None
     return res[0]
 
 def set_avatar(user, image_url):
     if get_avatar(user):
-        db.run('UPDATE avatars SET URL = %s WHERE USERNAME = %s', (image_url, user))
+        db.run('UPDATE avatars SET URL = :url WHERE USERNAME = :user', {'url': image_url, 'user': user})
     else:
-        db.run('INSERT INTO avatars (USERNAME, URL) VALUES (%s, %s)', (user, image_url))
+        db.run('INSERT INTO avatars (USERNAME, URL) VALUES (:user, :url)', {'user': user, 'url': image_url})
     return True
 
 def delete_user(userid):
-    db.run('DELETE FROM users WHERE ID = %s', (userid,))
-    db.run('DELETE FROM tokens WHERE USERID = %s', (userid,))
+    db.run('DELETE FROM users WHERE ID = :i', {'i': userid})
+    db.run('DELETE FROM tokens WHERE USERID = :u', {'u': userid})
 
 def register_token(userid, name=None):
-    if not (tkn := db.run('SELECT TOKEN FROM tokens WHERE USERID = %s AND NAME = %s', (userid, name))) == []:
+    if not (tkn := db.run('SELECT TOKEN FROM tokens WHERE USERID = :u AND NAME = :n', {'u': userid, 'n': name})) == []:
         return tokens.by_token(tkn[0]['TOKEN']) 
     tkn = uuid()
-    db.run('INSERT INTO tokens (TOKEN, USERID, CREATED, NAME) VALUES (%s, %s, %s, %s)', (
-        tkn,
-        userid,
-        timestamp(),
-        name,
-    ))
+    db.run('INSERT INTO tokens (TOKEN, USERID, CREATED, NAME) VALUES (:t, :u, :c, :n)', {
+        't': tkn,
+        'u': userid,
+        'c': timestamp(),
+        'n': name
+    })
     return tokens.by_token(tkn)
 
 # bins classes - TODO
@@ -277,24 +256,24 @@ def app_auth(domain='this site'):
 @app.route('/callback/verify/<token>')
 def callback_verify(token):
     try:
-        db.run('UPDATE users SET EMAIL_VERIFIED = %s WHERE TOKEN = %s', (True, token))
-        return redirect('https://auth.marcusj.tech/?msg=email_verified')
+        db.run('UPDATE users SET EMAIL_VERIFIED = :e WHERE TOKEN = :t', {'e': True, 't': token})
+        return redirect('https://auth.marcusj.org/?msg=email_verified')
     except:
-        return redirect('https://auth.marcusj.tech/')
+        return redirect('https://auth.marcusj.org/')
 
 @app.route('/forgotpass/<token>')
 def app_forgotpass(token):
     valid = repldb.get(token)
     if not valid:
-        return redirect('https://auth.marcusj.tech')
+        return redirect('https://auth.marcusj.org')
     if not time.time() - valid['time'] < (60 * 60 * 2):
-        return redirect('https://auth.marcusj.tech')
+        return redirect('https://auth.marcusj.org')
     return render_template('forgotpass.html', token=token)
 
 @app.route('/logout')
 def app_logout():
     session.clear()
-    return redirect('https://auth.marcusj.tech/?logout=true')
+    return redirect('https://auth.marcusj.org/?logout=true')
 
 @app.route('/static/auth.js')
 @app.route('/auth.js')
@@ -326,24 +305,24 @@ def api_change_pass():
     user = api_auth()
     if user:
         newpass = sha256(request.form['password'])
-        db.run('UPDATE users SET PASSHASH = %s WHERE ID = %s', (
-            newpass,
-            user['ID'],
-        ))
+        db.run('UPDATE users SET PASSHASH = :p WHERE ID = :i', {
+            'p': newpass,
+            'i': user['ID']
+        })
         return jsonify({'changed': True})
     return jsonify({'changed': False})
 
 @app.route('/api/forgotpass', methods=['POST'])
 def api_forgotpass():
     email = request.form['email']
-    user = db.run('SELECT ID, EMAIL_VERIFIED FROM users WHERE EMAIL = %s', (email,))
+    user = db.run('SELECT ID, EMAIL_VERIFIED FROM users WHERE EMAIL = :e', {'e': email})
     if user == []:
         return jsonify({'err': 'no_user'})
     if not user[0]['EMAIL_VERIFIED']:
         return jsonify({'err': 'email_not_verified'})
     token = str(uuid4())
     repldb[token] = {'id': user[0]['ID'], 'time': time.time()}
-    mjms.send_mail([email], 'Reset Password', html=f'<h1><a href="https://auth.marcusj.tech/forgotpass/{token}">Click here to reset your password</a></h1><br><p>This link is only valid for 2 hours.</p>')
+    mjms.send_mail([email], 'Reset Password', html=f'<h1><a href="https://auth.marcusj.org/forgotpass/{token}">Click here to reset your password</a></h1><br><p>This link is only valid for 2 hours.</p>')
     return jsonify({'sent': True})
 
 @app.route('/api/forgotpass/post', methods=['POST'])
@@ -355,10 +334,10 @@ def api_forgotpass_post():
         if time.time() - repldb[token]['time'] > (60 * 60 * 2):
             del repldb[token]
             return jsonify({'changed': False})
-        db.run('UPDATE users SET PASSHASH = %s WHERE ID = %s', (
-            password,
-            userid
-        ))
+        db.run('UPDATE users SET PASSHASH = :p WHERE ID = :i', {
+            'p': password,
+            'i': userid
+        })
         del repldb[token]
         return jsonify({'changed': True})
     return jsonify({'changed': False})
@@ -371,7 +350,11 @@ def api_email_check():
             return jsonify({'verified': True})
         res = mjms.check_verified(user['EMAIL_TOKEN'])
         if res['verified']:
-            db.run('UPDATE users SET EMAIL_VERIFIED = %s WHERE ID = %s AND EMAIL_TOKEN = %s', (True, user['ID'], user['EMAIL_TOKEN']))
+            db.run('UPDATE users SET EMAIL_VERIFIED = :e WHERE ID = :i AND EMAIL_TOKEN = :t', {
+                'e': True, 
+                'i': user['ID'], 
+                't': user['EMAIL_TOKEN']
+            })
         return jsonify(res)
 
 @app.route('/api/user', methods=['POST'])
@@ -436,7 +419,11 @@ def socket_email_check(json):
             return {'verified': True}
         res = mjms.check_verified(user['EMAIL_TOKEN'])
         if res['verified']:
-            db.run('UPDATE users SET EMAIL_VERIFIED = %s WHERE ID = %s AND EMAIL_TOKEN = %s', (True, user['ID'], user['EMAIL_TOKEN']))
+            db.run('UPDATE users SET EMAIL_VERIFIED = :e WHERE ID = :i AND EMAIL_TOKEN = :t', {
+                'e': True, 
+                'i': user['ID'], 
+                't': user['EMAIL_TOKEN']
+            })
         return res
 
 @socketio.on('resend_email_check')
@@ -445,7 +432,7 @@ def socket_resend_email_check(json):
     if user:
         if not user['EMAIL_VERIFIED']:
             res = mjms.verify_email(user['EMAIL'])
-            db.run('UPDATE users SET EMAIL_TOKEN = %s WHERE ID = %s', (res['token'], user['ID']))
+            db.run('UPDATE users SET EMAIL_TOKEN = :t WHERE ID = :i', {'t': res['token'], 'i': user['ID']})
         return {'ok': True}
     return {'ok': False}
 
@@ -454,10 +441,10 @@ def socket_change_pass(json):
     user = get_user.by_token(json['token'])
     if user:
         newpass = sha256(json['password'])
-        db.run('UPDATE users SET PASSHASH = %s WHERE ID = %s', (
-            newpass,
-            user['ID'],
-        ))
+        db.run('UPDATE users SET PASSHASH = :p WHERE ID = :i', {
+            'p': newpass,
+            'i': user['ID'],
+        })
         return {'changed': True}
     return {'changed': False}
 
@@ -470,10 +457,10 @@ def socket_forgotpass_post(json):
         if time.time() - repldb[token]['time'] > (60 * 60 * 2):
             del repldb[token]
             return {'changed': False}
-        db.run('UPDATE users SET PASSHASH = %s WHERE ID = %s', (
-            password,
-            userid
-        ))
+        db.run('UPDATE users SET PASSHASH = :p WHERE ID = :i', {
+            'p': password,
+            'i': userid,
+        })
         del repldb[token]
         return {'changed': True}
     return {'changed': False}
@@ -481,14 +468,14 @@ def socket_forgotpass_post(json):
 @socketio.on('forgotpass')
 def socket_forgotpass(json):
     email = json['email']
-    user = db.run('SELECT ID, EMAIL_VERIFIED FROM users WHERE EMAIL = %s', (email,))
+    user = db.run('SELECT ID, EMAIL_VERIFIED FROM users WHERE EMAIL = :e', {'e': email})
     if user == []:
         return {'err': 'no_user'}
     if not user[0]['EMAIL_VERIFIED']:
         return {'err': 'email_not_verified'}
     token = str(uuid4())
     repldb[token] = {'id': user[0]['ID'], 'time': time.time()}
-    mjms.send_mail([email], 'Reset Password', html=f'<h1><a href="https://auth.marcusj.tech/forgotpass/{token}">Click here to reset your password</a></h1><br><p>This link is only valid for 2 hours.</p>')
+    mjms.send_mail([email], 'Reset Password', html=f'<h1><a href="https://auth.marcusj.org/forgotpass/{token}">Click here to reset your password</a></h1><br><p>This link is only valid for 2 hours.</p>')
     return {'sent': True}
 
 @socketio.on('delete')
