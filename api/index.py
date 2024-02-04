@@ -135,6 +135,7 @@ def user_login(username, password):
     return user
 
 def check_username(username):
+    """Returns False if username is invalid or taken."""
     if valid_user(username):
         if db.run('SELECT ID FROM users WHERE USERNAME = :u', {'u': username}) == []:
             return True
@@ -259,7 +260,7 @@ def api_login():
 @app.route('/api/signup', methods=['POST'])
 def api_signup():
     username = request.form['username']
-    if not valid_user(username):
+    if not check_username(username):
         return jsonify({'success': False, 'error': 'username taken'})
     password = request.form['password']
     email = request.form.get('email')

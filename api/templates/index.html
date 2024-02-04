@@ -235,11 +235,11 @@ function do_signup(event) {
         'password': password,
         'email': $('#signup input[name=email]').val(),
         'fullname': $('#signup input[name=fullname]').val()
-    }, (user) => {
-        if (user) {
-            localStorage.setItem('token', user.TOKEN);
+    }, (res) => {
+        if (res.success) {
+            localStorage.setItem('token', res.user.TOKEN);
             do_form('/api/setsession', {
-                'token': user.TOKEN,
+                'token': res.user.TOKEN,
                 'redirect': '{{ redir }}' || window.location.href
             });
         } else {
