@@ -27,7 +27,7 @@ class ReplDBSQL(object):
 #monkey.patch_all()
 #from dotenv import load_dotenv; load_dotenv() # DEV
 from flask import Flask, jsonify, request, render_template, session, redirect
-from flask_socketio import SocketIO
+#from flask_socketio import SocketIO
 #from replemail import ReplEmail
 from mjms import MJMS
 from datetime import datetime
@@ -43,8 +43,8 @@ import imj
 # flask setup
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
-socketio = SocketIO(app)
-socketio.init_app(app, cors_allowed_origins='*')
+#socketio = SocketIO(app)
+#socketio.init_app(app, cors_allowed_origins='*')
 
 repldb = {}
 
@@ -380,7 +380,7 @@ def api_set_avatar():
     return jsonify({'updated': False})
 
 # socket api
-
+'''
 @socketio.on('login')
 def socket_login(json):
     return user_login(json['username'], json['password'])
@@ -480,6 +480,7 @@ def socket_auth(json):
 @socketio.on('user')
 def socket_user(json):
     return get_user.by_token(json['token'])
+'''
 
 '''
 if __name__ == '__main__':

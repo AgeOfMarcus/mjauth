@@ -17,7 +17,7 @@
 <script>
 
 const token = '{{ token }}';
-const socket = io();
+//const socket = io();
 
 function submitPass() {
     p1 = $('input[name=pass1]').val();
@@ -29,8 +29,7 @@ function submitPass() {
     $('#pwerr').text('');
     addLoader($('#toLoad')[0]);
 
-    socket.emit('forgotpass post', {
-        'token': token,
+    post_data(`/api/forgotpass/${token}`, {
         'password': p1,
     }, (r) => {
         $('#toLoad').empty();

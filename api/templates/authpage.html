@@ -25,7 +25,7 @@
 
 <script>
 
-const socket = io();
+//const socket = io();
 
 function do_form(route, data) {
     form = document.createElement('form');
@@ -45,16 +45,16 @@ function do_form(route, data) {
 function allow() {
     document.getElementById('allowArea').innerHTML = '';
     addLoader(document.getElementById('allowArea'));
-    socket.emit('auth', {
+    post_data('auth', {
         'token': '{{ user["TOKEN"] }}',
         'domain': '{{ domain }}',
     }, (res) => {
         if (window.opener) {
-            socket.emit('user', {'token': res['TOKEN']}, (user) => {
+            post_data('user', {'token': res['TOKEN']}, (user) => {
                 window.opener.postMessage({'user': user, 'token': res['TOKEN']}, '*');
             })
         } else {
-            socket.emit('user', {'token': res['TOKEN']}, (user) => {
+            post_data('user', {'token': res['TOKEN']}, (user) => {
                 do_form('https://{{ domain }}/_dupl/auth', {
                     'token': res['TOKEN'],
                     'user': JSON.stringify(user),
