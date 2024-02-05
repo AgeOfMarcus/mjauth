@@ -81,6 +81,7 @@ CREATE TABLE IF NOT EXISTS avatars (
 # replemail
 #replemail = ReplEmail('MarcusWeinberger', os.getenv('REPLEMAIL'))
 mjms = MJMS(os.getenv('MJMS'))
+mjms.base = 'https://mailsrv.marcusj.org/api' # shouldn't be needed but to ensure
 
 # general stuff
 sha256 = lambda s: hashlib.sha256(s.encode()).hexdigest()
