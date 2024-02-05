@@ -204,11 +204,11 @@ function do_login(event) {
     post_data('login', {
         'username': $('#login input[name=username]').val(),
         'password': $('#login input[name=password]').val()
-    }, (user) => {
-        if (user) {
-            localStorage.setItem('token', user.TOKEN);
+    }, (res) => {
+        if (res.success) {
+            localStorage.setItem('token', res.user.TOKEN);
             do_form('/api/setsession', {
-                'token': user.TOKEN,
+                'token': res.user.TOKEN,
                 'redirect': '{{ redir }}' || window.location.href
             });
         } else {
