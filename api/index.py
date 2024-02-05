@@ -327,7 +327,7 @@ def api_email_check():
         return jsonify(res)
 
 @app.route('/api/email/resend', methods=['POST'])
-def api_resend_email_check(json):
+def api_resend_email_check():
     user = api_auth()
     if user:
         if user['EMAIL_VERIFIED']:
