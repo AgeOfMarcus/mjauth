@@ -443,7 +443,7 @@ def api_setsession():
         session['user'] = user
         #return jsonify({'ok': True})
         return redirect(request.form.get('redirect', '/'))
-    return jsonify({'error': 'invalid token'})
+    return redirect('https://auth.marcusj.org/logout')
 
 @app.route('/api/delete', methods=['POST'])
 def api_delete():
