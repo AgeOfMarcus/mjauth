@@ -93,6 +93,7 @@ function deleteAccount() {
 {% if not user['EMAIL_VERIFIED'] %}
 <p style='color: red'>Please verify your email address. Make sure to check your spam folder, too!</p>
 <button onclick='resendEmail()'>Resend verification email</button>
+<button onclick="checkEmailVerified()">I've verified</button>
 
 <script>
 
@@ -105,6 +106,18 @@ function resendEmail() {
     }, (r) => {
         if (r['ok']) {
             alert('Sent!')
+        }
+    })
+}
+
+function checkEmailVerified() {
+    post_data('/api/email/check', {
+        'token': '{{ user["TOKEN"] }}',
+    }, (r) => {
+        if (r['verified']) {
+            window.location.reload();
+        } else {
+            alert('Email not verified yet. Check your email and spam folder for the verification link.');
         }
     })
 }
