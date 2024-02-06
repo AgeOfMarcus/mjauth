@@ -80,6 +80,14 @@ CREATE TABLE IF NOT EXISTS avatars (
     URL TEXT NOT NULL
 )
 ''')
+db.run('''
+CREATE TABLE IF NOT EXISTS mfa (
+    ID INTEGER PRIMARY KEY AUTO_INCREMENT,
+    USERID INTEGER NOT NULL,
+    SECRET TEXT NOT NULL,
+    VERIFIED BOOL NOT NULL
+)
+''')
 
 # replemail
 #replemail = ReplEmail('MarcusWeinberger', os.getenv('REPLEMAIL'))
@@ -141,8 +149,7 @@ def user_login(username, password):
 def check_username(username):
     """Returns False if username is invalid or taken."""
     if valid_user(username):
-        if db.run('SELECT ID FROM users WHERE USERNAME = :u', {'u': username}) == []:
-            return True
+        return not get_user.by_user(username) # get_user.by_username returns False if user not found
     return False
 
 def register_user(username, password, email=None, fullname=None):
@@ -192,6 +199,9 @@ def register_token(userid, name=None):
     })
     return tokens.by_token(tkn)
 
+def get_mfa(user):
+    res = db.run('SELECT * FROM mfa WHERE USERID = :u', {'u': user['ID']})
+    return res[0] if not res == [] else False
 
 # api auth functions
 
@@ -204,6 +214,7 @@ def api_auth():
         user = session.get('user')
     if user and not 'TOKEN' in user:
         user['TOKEN'] = tokens.get_master_token(user['ID'])
+    user['HAS_MFA'] = bool(get_mfa(user))
     return user
 
 # app
@@ -253,24 +264,42 @@ def app_logout():
 def app_auth_js():
     return render_template('auth.js')
 
-@app.route('/qr')
+@app.route('/mfa/qr')
 def app_qr():
-    if (text := request.args.get('text')):
-        img = qrcode.make(text)
-        img_io = io.BytesIO()
-        img.save(img_io, 'JPEG')
-        img_io.seek(0)
+    if (user := api_auth()):
+        if (mfa := get_mfa(user)):
+            if not mfa['VERIFIED']:
+                text = pyotp.totp.TOTP(mfa['SECRET']).provisioning_uri(user['USERNAME'], issuer_name='auth.marcusj.org')
+                img = qrcode.make(text)
+                img_io = io.BytesIO()
+                img.save(img_io, 'JPEG')
+                img_io.seek(0)
 
-        return send_file(img_io, mimetype='image/jpeg')
-    return 'err: no text'
+                return send_file(img_io, mimetype='image/jpeg')
+            else:
+                return 'err: mfa already verified. please contact marcus@marcusj.org if you need to reset your mfa'
+        else:
+            return 'err: no mfa for user'
+    return 'err: not authenticated'
 
 # api
 @app.route('/api/login', methods=['POST'])
 def api_login():
     user = user_login(request.form['username'], request.form['password'])
     if user:
-        session['user'] = user
-    return jsonify({'success': bool(user), 'user': user})
+        if not (mfa := get_mfa(user)):
+            session['user'] = user
+            return jsonify({'success': True, 'user': user})
+        # do mfa flow
+        if (code := request.form.get('mfa')):
+            totp = pyotp.TOTP(mfa['SECRET'])
+            if totp.verify(code):
+                session['user'] = user
+                return jsonify({'success': True, 'user': user})
+            return jsonify({'success': False, 'error': 'invalid code'})
+        return jsonify({'success': False, 'mfa': True})
+    else:
+        return jsonify({'success': False, 'error': 'invalid login'})
 
 @app.route('/api/signup', methods=['POST'])
 def api_signup():
@@ -296,14 +325,50 @@ def api_change_pass():
         return jsonify({'changed': True})
     return jsonify({'changed': False})
 
+@app.route('/api/mfa/enable', methods=['POST'])
+def api_mfa_enable():
+    if (user := api_auth()):
+        if (mfa := get_mfa(user)):
+            if mfa['VERIFIED']:
+                return jsonify({'ok': False, 'error': 'mfa has already been added for this account'})
+            # else, delete old mfa
+            db.run('DELETE FROM mfa WHERE USERID = :u AND SECRET = :s', {
+                'u': user['ID'],
+                's': mfa['SECRET']
+            })
+        # create new mfa
+        secret = pyotp.random_base32()
+        db.run('INSERT INTO mfa (USERID, SECRET, VERIFIED) VALUES (:u, :s, :v)', {
+            'u': user['ID'],
+            's': secret,
+            'v': False
+        })
+        return jsonify({'ok': True}) # next step is to verify
+    else:
+        return jsonify({'ok': False, 'error': 'bad/no authentication'})
+
+@app.route('/api/mfa/verify', methods=['POST'])
+def api_mfa_verify():
+    if (user := api_auth()):
+        if (mfa := get_mfa(user)):
+            totp = pyotp.TOTP(mfa['SECRET'])
+            if totp.verify(request.form['code']):
+                db.run('UPDATE mfa SET VERIFIED = :v WHERE USERID = :u', {'v': True, 'u': user['ID']})
+                return jsonify({'ok': True})
+            return jsonify({'ok': False, 'error': 'invalid code'})
+        else:
+            return jsonify({'ok': False, 'error': 'no mfa'})
+    else:
+        return jsonify({'ok': False, 'error': 'bad/no authentication'})
+
 @app.route('/api/forgotpass', methods=['POST'])
 def api_forgotpass():
     email = request.form['email']
     user = db.run('SELECT ID, EMAIL_VERIFIED FROM users WHERE EMAIL = :e', {'e': email})
     if user == []:
-        return jsonify({'err': 'no_user'})
+        return jsonify({'error': 'no_user'})
     if not user[0]['EMAIL_VERIFIED']:
-        return jsonify({'err': 'email_not_verified'})
+        return jsonify({'error': 'email_not_verified'})
     token = str(uuid4())
     repldb[token] = {'id': user[0]['ID'], 'time': time.time()}
     mjms.send_mail([email], 'Reset Password', html=f'<h1><a href="https://auth.marcusj.org/forgotpass/{token}">Click here to reset your password</a></h1><br><p>This link is only valid for 2 hours.</p>')
@@ -376,7 +441,7 @@ def api_setsession():
         session['user'] = user
         #return jsonify({'ok': True})
         return redirect(request.form.get('redirect', '/'))
-    return jsonify({'err': 'invalid token'})
+    return jsonify({'error': 'invalid token'})
 
 @app.route('/api/delete', methods=['POST'])
 def api_delete():
@@ -404,7 +469,7 @@ def socket_login(json):
 def socket_signup(json):
     username = json['username']
     if not valid_user(username):
-        return {'err': 'invalid username'}
+        return {'error': 'invalid username'}
     user = register_user(username, json['password'], email=json.get('email'), fullname=json.get('fullname'))
     return user
 
@@ -467,9 +532,9 @@ def socket_forgotpass(json):
     email = json['email']
     user = db.run('SELECT ID, EMAIL_VERIFIED FROM users WHERE EMAIL = :e', {'e': email})
     if user == []:
-        return {'err': 'no_user'}
+        return {'error': 'no_user'}
     if not user[0]['EMAIL_VERIFIED']:
-        return {'err': 'email_not_verified'}
+        return {'error': 'email_not_verified'}
     token = str(uuid4())
     repldb[token] = {'id': user[0]['ID'], 'time': time.time()}
     mjms.send_mail([email], 'Reset Password', html=f'<h1><a href="https://auth.marcusj.org/forgotpass/{token}">Click here to reset your password</a></h1><br><p>This link is only valid for 2 hours.</p>')

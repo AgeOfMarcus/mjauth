@@ -1,3 +1,6 @@
 change qr route to pull otp secret from user
     authenticated 
-create new row/table for use_twofactor and twofactor_secret
+
+add mfa to:
+    * deleting account
+    * changing password

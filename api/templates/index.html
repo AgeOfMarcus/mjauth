@@ -126,6 +126,50 @@ function checkEmailVerified() {
 </script>
 {% endif %}
 
+{% if not user['HAS_MFA'] %}
+
+<p style='color: red'>Please enable multi-factor authentication for better security.</p>
+<button onclick="enableMFA()">Enable MFA</button>
+<div id="mfa" style="display: none">
+    <div class="iframe"></div>
+    <input type="text" id="mfaCode" placeholder="Enter code"/><button onclick="verifyMFA()">Verify</button>
+</div>
+
+<script>
+    function enableMFA() {
+        if (document.querySelector('#mfa').style.display == 'block') {
+            return;
+        }
+
+        post_data('/api/mfa/enable', {
+            'token': user.TOKEN
+        }, (res) => {
+            if (res.ok) {
+                document.querySelector('#mfa > .iframe').innerHTML = `<iframe src="/mfa/qr" style="width: 40%; height: 40%" frameborder="0"></iframe>`;
+                document.querySelector('#mfa').style.display = 'block';
+            } else {
+                alert(res.error);
+            }
+        })
+    }
+
+    function verifyMFA() {
+        post_data('/api/mfa/verify', {
+            'token': user.TOKEN,
+            'code': document.querySelector('#mfaCode').value
+        }, (res) => {
+            if (res.ok) {
+                alert('MFA enabled');
+                window.location.reload();
+            } else {
+                alert(res.error);
+            }
+        })
+    }
+</script>
+
+{% endif %}
+
 {% else %}
 
 <div>
@@ -140,6 +184,12 @@ function checkEmailVerified() {
         <label for='password'>Password:</label>
         <input name='password' type="password">
         <br>
+        <div id="mfa" style="display: none">
+            <label for='mfa'>MFA:</label>
+            <input type="text" name="mfa" placeholder="Enter code"/>
+            <br/>
+            <p>Please enter the code from your authenticator app, and press login again.</p>
+        </div>
         <input type="submit">
 
         <p>Don't have an account? <a href='#' onclick='$("#login").hide(); $("#signup").show()'>Click here</a> to sign up.</p>
@@ -204,8 +254,8 @@ function doForgotPass(event) {
     post_data('forgotpass', {
         'email': $('input[name=tg_email]').val()
     }, (r) => {
-        if (r.err) {
-            alert(r.err);
+        if (r.error) {
+            alert(r.error);
         } else {
             alert("Sent link to your email");
         }
@@ -215,16 +265,25 @@ function doForgotPass(event) {
 function do_login(event) {
     event.preventDefault();
 
-    post_data('login', {
+    loginData = {
         'username': $('#login input[name=username]').val(),
         'password': $('#login input[name=password]').val()
-    }, (res) => {
+    }
+
+    mfaCode = $('#mfa input[name=mfa]').val();
+    if (mfaCode) {
+        loginData['mfa'] = mfaCode;
+    }
+
+    post_data('login', loginData, (res) => {
         if (res.success) {
             localStorage.setItem('token', res.user.TOKEN);
             do_form('/api/setsession', {
                 'token': res.user.TOKEN,
                 'redirect': '{{ redir }}' || window.location.href
             });
+        } else if (res.mfa) {
+            $('#mfa').show();
         } else {
             $('#err').text('Invalid Login');
         }
