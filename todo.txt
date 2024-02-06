@@ -1,5 +1,4 @@
-change qr route to pull otp secret from user
-    authenticated 
+enable removal of mfa
 
 add mfa to:
     * deleting account
