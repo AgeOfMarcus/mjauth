@@ -214,7 +214,8 @@ def api_auth():
         user = session.get('user')
     if user and not 'TOKEN' in user:
         user['TOKEN'] = tokens.get_master_token(user['ID'])
-    user['HAS_MFA'] = bool(get_mfa(user))
+    if user['ID']:
+        user['HAS_MFA'] = bool(get_mfa(user))
     return user
 
 # app
