@@ -142,7 +142,7 @@ function checkEmailVerified() {
         }
 
         post_data('/api/mfa/enable', {
-            'token': user.TOKEN
+            'token': '{{ user["TOKEN"] }}'
         }, (res) => {
             if (res.ok) {
                 document.querySelector('#mfa > .iframe').innerHTML = `<iframe src="/mfa/qr" style="width: 40%; height: 40%" frameborder="0"></iframe>`;
@@ -155,7 +155,7 @@ function checkEmailVerified() {
 
     function verifyMFA() {
         post_data('/api/mfa/verify', {
-            'token': user.TOKEN,
+            'token': '{{ user["TOKEN"] }}',
             'code': document.querySelector('#mfaCode').value
         }, (res) => {
             if (res.ok) {
