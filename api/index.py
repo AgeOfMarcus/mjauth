@@ -215,7 +215,7 @@ def api_auth():
     if user and not 'TOKEN' in user:
         user['TOKEN'] = tokens.get_master_token(user['ID'])
     if user and 'ID' in user:
-        user['HAS_MFA'] = bool(get_mfa(user))
+        user['HAS_MFA'] = (get_mfa(user) or {}).get('VERIFIED', False)
     return user
 
 # app
@@ -288,7 +288,8 @@ def app_qr():
 def api_login():
     user = user_login(request.form['username'], request.form['password'])
     if user:
-        if not (mfa := get_mfa(user)):
+        mfa = get_mfa(user)
+        if not mfa['VERIFIED']:
             session['user'] = user
             return jsonify({'success': True, 'user': user})
         # do mfa flow
