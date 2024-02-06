@@ -258,7 +258,7 @@ def app_qr():
     if (text := request.args.get('text')):
         img = qrcode.make(text)
         img_io = io.BytesIO()
-        img.save(img_io, 'JPEG', quality=70)
+        img.save(img_io, 'JPEG')
         img_io.seek(0)
 
         return send_file(img_io, mimetype='image/jpeg')
