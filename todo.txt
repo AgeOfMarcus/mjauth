@@ -1,2 +1,3 @@
-test creating account 
-if works: update rest of frontend
+change qr route to pull otp secret from user
+    authenticated 
+create new row/table for use_twofactor and twofactor_secret

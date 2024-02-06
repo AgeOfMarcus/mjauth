@@ -26,7 +26,7 @@ class ReplDBSQL(object):
 #from gevent import monkey
 #monkey.patch_all()
 #from dotenv import load_dotenv; load_dotenv() #DEV
-from flask import Flask, jsonify, request, render_template, session, redirect
+from flask import Flask, jsonify, request, render_template, session, redirect, send_file
 #from flask_socketio import SocketIO
 #from replemail import ReplEmail
 from mjms import MJMS
@@ -37,8 +37,11 @@ from uuid import uuid4
 import requests
 import hashlib
 import string
+import qrcode
+import pyotp
 import time
 import imj
+import io
 
 # flask setup
 app = Flask(__name__)
@@ -249,6 +252,17 @@ def app_logout():
 @app.route('/auth.js')
 def app_auth_js():
     return render_template('auth.js')
+
+@app.route('/qr')
+def app_qr():
+    if (text := request.args.get('text')):
+        img = qrcode.make(text)
+        img_io = io.BytesIO()
+        img.save(img_io, 'JPEG', quality=70)
+        img_io.seek(0)
+
+        return send_file(img_io, mimetype='image/jpeg')
+    return 'err: no text'
 
 # api
 @app.route('/api/login', methods=['POST'])

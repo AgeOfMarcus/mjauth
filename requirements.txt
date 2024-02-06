@@ -5,3 +5,5 @@ imj
 pymysql
 sqlalchemy
 gevent
+qrcode
+pyotp
