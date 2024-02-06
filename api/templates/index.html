@@ -115,7 +115,8 @@ function checkEmailVerified() {
         'token': '{{ user["TOKEN"] }}',
     }, (r) => {
         if (r['verified']) {
-            window.location.reload();
+            alert('Email verified. Please sign in again.');
+            window.location.replace('/logout');
         } else {
             alert('Email not verified yet. Check your email and spam folder for the verification link.');
         }
