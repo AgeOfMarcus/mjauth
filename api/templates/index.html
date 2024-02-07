@@ -35,6 +35,12 @@
     <input name='newpass' type='password'>
     <label for='confirmnewpass'>Confirm Password</label>
     <input name='confirmnewpass' type='password'>
+    <div class="mfa" style="display: none">
+        <label for='mfa'>MFA:</label>
+        <input type="text" name="mfa" placeholder="Enter code"/>
+        <br/>
+        <p>Please enter the code from your authenticator app, and try again.</p>
+    </div>
 
     <span id='chpwerr' style='color: red'></span>
     <span id='chpwres' style='color: green'></span>
@@ -63,12 +69,24 @@ function doChangePass() {
     } else {
         $('#chpwerr').text('');
         addLoader($('#chpwloader')[0]);
-        post_data('changepass', {
+
+        data = {
             'token': '{{ user["TOKEN"] }}',
             'password': newpass,
-        }, (r) => {
+        };
+        mfaCode = $('input[name=mfa]').val();
+        if (mfaCode) {
+            data['mfa'] = mfaCode;
+        }
+
+
+        post_data('changepass', data, (r) => {
             if (r['changed']) {
                 $('#chpwres').text('Password Changed');
+            } else if (r['mfa']) {
+                $('#chpwerr').text('MFA required');
+                $('input[name=mfa]').val('');
+                $('.mfa').show();
             } else {
                 $('#chpwerr').text('Error');
             }
@@ -84,6 +102,20 @@ function deleteAccount() {
         }, (r) => {
             if (r['deleted']) {
                 window.location.replace("/logout");
+            } else if (r['mfa']) {
+                code = prompt('Enter MFA code');
+                if (code) {
+                    post_data('delete', {
+                        'token': '{{ user["TOKEN"] }}',
+                        'mfa': code
+                    }, (r) => {
+                        if (r['deleted']) {
+                            window.location.replace("/logout");
+                        } else {
+                            alert('Error: ' + r.error);
+                        }
+                    })
+                }
             }
         })
     }

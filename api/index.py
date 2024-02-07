@@ -319,6 +319,13 @@ def api_signup():
 def api_change_pass():
     user = api_auth()
     if user:
+        if (mfa := get_mfa(user))['VERIFIED']:
+            if (code := request.form.get('mfa')):
+                totp = pyotp.TOTP(mfa['SECRET'])
+                if not totp.verify(code):
+                    return jsonify({'changed': False, 'error': 'invalid mfa'})
+            else:
+                return jsonify({'changed': False, 'mfa': True})
         newpass = sha256(request.form['password'])
         db.run('UPDATE users SET PASSHASH = :p WHERE ID = :i', {
             'p': newpass,
@@ -449,6 +456,13 @@ def api_setsession():
 def api_delete():
     user = api_auth()
     if user:
+        if (mfa := get_mfa(user))['VERIFIED']:
+            if (code := request.form.get('mfa')):
+                totp = pyotp.TOTP(mfa['SECRET'])
+                if not totp.verify(code):
+                    return jsonify({'deleted': False, 'error': 'invalid mfa'})
+            else:
+                return jsonify({'deleted': False, 'mfa': True})
         delete_user(user['ID'])
         return jsonify({'deleted': True})
     return jsonify({'deleted': False})
