@@ -296,6 +296,7 @@ function doForgotPass(event) {
 
 function do_login(event) {
     event.preventDefault();
+    $('#err').text('');
 
     loginData = {
         'username': $('#login input[name=username]').val(),
@@ -317,7 +318,7 @@ function do_login(event) {
         } else if (res.mfa) {
             $('#mfa').show();
         } else {
-            $('#err').text('Invalid Login');
+            $('#err').text(res.error);
         }
     })
 }

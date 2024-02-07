@@ -186,6 +186,7 @@ def set_avatar(user, image_url):
 def delete_user(userid):
     db.run('DELETE FROM users WHERE ID = :i', {'i': userid})
     db.run('DELETE FROM tokens WHERE USERID = :u', {'u': userid})
+    db.run('DELETE FROM mfa WHERE USERID = :u', {'u': userid})
 
 def register_token(userid, name=None):
     if not (tkn := db.run('SELECT TOKEN FROM tokens WHERE USERID = :u AND NAME = :n', {'u': userid, 'n': name})) == []:
