@@ -289,10 +289,10 @@ def app_qr():
 def api_login():
     user = user_login(request.form['username'], request.form['password'])
     if user:
-        mfa = get_mfa(user)
-        if mfa and not mfa['VERIFIED']:
-            session['user'] = user
-            return jsonify({'success': True, 'user': user})
+        if (mfa := get_mfa(user)):
+            if not mfa['VERIFIED']:
+                session['user'] = user
+                return jsonify({'success': True, 'user': user})
         # do mfa flow
         if (code := request.form.get('mfa')):
             totp = pyotp.TOTP(mfa['SECRET'])

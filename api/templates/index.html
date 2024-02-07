@@ -223,6 +223,7 @@ function checkEmailVerified() {
             <p>Please enter the code from your authenticator app, and press submit again.</p>
         </div>
         <input type="submit">
+        <div id="loginLoader"></div>
 
         <p>Don't have an account? <a href='#' onclick='$("#login").hide(); $("#signup").show()'>Click here</a> to sign up.</p>
     </form>
@@ -246,6 +247,7 @@ function checkEmailVerified() {
         <span id='pwerr' style="color: red"></span>
         <br>
         <input type='submit'>
+        <div id="signupLoader"></div>
 
         <p>Already have an account? <a href='#' onclick='$("#login").show(); $("#signup").hide()'>Click here</a> to login.</p>
     </form>
@@ -297,6 +299,7 @@ function doForgotPass(event) {
 function do_login(event) {
     event.preventDefault();
     $('#err').text('');
+    addLoader($('#loginLoader')[0]);
 
     loginData = {
         'username': $('#login input[name=username]').val(),
@@ -309,6 +312,8 @@ function do_login(event) {
     }
 
     post_data('login', loginData, (res) => {
+        $('#loginLoader').empty();
+
         if (res.success) {
             localStorage.setItem('token', res.user.TOKEN);
             do_form('/api/setsession', {
@@ -325,6 +330,7 @@ function do_login(event) {
 
 function do_signup(event) {
     event.preventDefault();
+    addLoader($('#signupLoader')[0]);
 
     password = $('#signup input[name=password]').val();
     password_confirm = $('#signup input[name=password_confirm]').val();
@@ -342,6 +348,8 @@ function do_signup(event) {
         'email': $('#signup input[name=email]').val(),
         'fullname': $('#signup input[name=fullname]').val()
     }, (res) => {
+        $('#signupLoader').empty();
+
         if (res.success) {
             localStorage.setItem('token', res.user.TOKEN);
             do_form('/api/setsession', {
