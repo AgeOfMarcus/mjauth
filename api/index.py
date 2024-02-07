@@ -290,7 +290,7 @@ def api_login():
     user = user_login(request.form['username'], request.form['password'])
     if user:
         mfa = get_mfa(user)
-        if not mfa.get('VERIFIED', False):
+        if mfa and not mfa['VERIFIED']:
             session['user'] = user
             return jsonify({'success': True, 'user': user})
         # do mfa flow
